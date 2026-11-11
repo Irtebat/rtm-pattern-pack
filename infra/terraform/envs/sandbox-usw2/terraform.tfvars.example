@@ -1,0 +1,54 @@
+# Copy this file to terraform.tfvars and replace every <placeholder>.
+# terraform.tfvars is not committed. See variables.tf for all options.
+
+# --- Accounts and profiles -------------------------------------------------
+
+# AWS CLI profile that can create MSK, EC2, IAM, S3, KMS and Managed Flink resources.
+aws_profile = "<your-aws-profile>"
+
+# Region of the Databricks workspace's data plane VPC. MSK, the Flink
+# application and the load generator host are created in the same region.
+aws_region = "us-west-2"
+
+# Databricks CLI profile for the classic workspace that runs the RTM jobs.
+databricks_profile = "<databricks-workspace-profile>"
+
+# Tag applied to every resource (owner=<value>). Use your team mailbox or email.
+owner = "<owner-email>"
+
+# --- Workspace network (read only) -----------------------------------------
+
+# Deployment name of the classic workspace. The data plane VPC is found by the
+# tag Resource = <workspace_name>. The workspace URL is
+# <databricks-workspace-url>; the deployment name is the first label of it.
+workspace_name = "<workspace-deployment-name>"
+
+# Set these only if the VPC is not tagged as above.
+# workspace_vpc_id            = "<vpc-id>"
+# workspace_security_group_id = "<cluster-security-group-id>"
+
+# --- Unity Catalog ---------------------------------------------------------
+
+# Catalog for checkpoints and results. The schema is created if it is missing.
+uc_catalog = "<unity-catalog-name>"
+uc_schema  = "rtmpack"
+
+# --- Managed Flink ---------------------------------------------------------
+
+# Managed Flink runtime. Use FLINK-2_3 to match the tuned profile in docs/CONTRACT.md.
+flink_runtime_environment = "FLINK-2_3"
+
+# --- Optional overrides (defaults are in variables.tf) ---------------------
+
+# name_prefix                       = "rtmpack"
+# partitions                        = 8
+# msk_brokers_per_az                = 2
+# msk_broker_instance_type          = "kafka.m7g.large"
+# rtm_spark_version                 = "18.x-scala2.13"
+# rtm_node_type_id                  = "m5.xlarge"
+# loadgen_instance_type             = "c6i.2xlarge"
+
+# Engines and the load generator host are off by default. The benchmark scripts
+# turn them on per run; do not set these here unless you start them by hand.
+# running_patterns = []
+# loadgen_running  = false

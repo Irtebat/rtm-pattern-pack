@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Optional mirror template for build-flink.sh. It is used only when RTMPACK_MAVEN_MIRROR
+     is set, and routes every Maven download through that URL. Without the variable,
+     build-flink.sh does not pass this file and Maven uses Maven Central or ~/.m2/settings.xml. -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>rtmpack-mirror</id>
+      <name>Maven mirror from RTMPACK_MAVEN_MIRROR</name>
+      <url>${env.RTMPACK_MAVEN_MIRROR}</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

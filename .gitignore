@@ -1,0 +1,18 @@
+# Terraform working directories, plans and local state (state contains secrets)
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.*
+# Build and test output
+target/
+build/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+crash.log
+# Local inputs and run output
+*.tfvars
+!*.tfvars.example
+results/
+.venv/
+.DS_Store

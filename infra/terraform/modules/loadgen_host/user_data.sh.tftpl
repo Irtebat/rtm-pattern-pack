@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/rtmpack-bootstrap.log) 2>&1
+echo "rtmpack bootstrap started at $(date -u +%FT%TZ)"
+
+export AWS_REGION="${region}"
+export AWS_DEFAULT_REGION="${region}"
+
+HARNESS_S3_URI="${harness_s3_uri}"
+MSK_SECRET_ARN="${msk_secret_arn}"
+HOME_DIR=/opt/rtmpack
+SRC_DIR=$HOME_DIR/harness
+VENV_DIR=$HOME_DIR/venv
+
+dnf install -y python3.11 python3.11-pip unzip
+
+mkdir -p "$HOME_DIR"
+aws s3 cp "$HARNESS_S3_URI" "$HOME_DIR/rtmpack-harness.zip"
+
+rm -rf "$SRC_DIR"
+mkdir -p "$SRC_DIR"
+unzip -q -o "$HOME_DIR/rtmpack-harness.zip" -d "$SRC_DIR"
+
+python3.11 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install "$SRC_DIR"
+
+cat > "$HOME_DIR/rtmpack.env" <<EOF
+export AWS_REGION=${region}
+export AWS_DEFAULT_REGION=${region}
+export RTMPACK_MSK_SECRET_ARN=$MSK_SECRET_ARN
+export PATH=$VENV_DIR/bin:\$PATH
+EOF
+chmod 0644 "$HOME_DIR/rtmpack.env"
+chmod -R a+rX "$HOME_DIR"
+
+echo "rtmpack bootstrap finished at $(date -u +%FT%TZ)"
