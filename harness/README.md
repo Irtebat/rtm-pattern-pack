@@ -13,8 +13,8 @@ The harness does not run the engines. Each engine job reads `rtmpack.<id>.input`
 | `rtmpack_harness/config.py` | Kafka connection settings (flags, environment, Secrets Manager) |
 | `rtmpack_harness/secrets.py` | Reads the SCRAM credentials from AWS Secrets Manager |
 | `rtmpack_harness/topics.py` | Creates and deletes the topics for a pattern |
-| `rtmpack_harness/patterns.py` | Pattern registry: generators, encoders, output keys, expected counts, value checks |
-| `rtmpack_harness/events.py` | 01-dedup event generator and padded JSON encoding |
+| `rtmpack_harness/patterns/` | One file per pattern (`p01_dedup.py` ... `p08_join.py`): generator, encoder, output keys, expected count, value check. `_template.py` is the starting point for a new one, and `base.py` holds the `Pattern` record |
+| `rtmpack_harness/events.py` | The shared input event, the generator base classes and padded JSON encoding |
 | `rtmpack_harness/schedule.py` | Duplicate decisions and the resend heap |
 | `rtmpack_harness/loadgen.py` | Multi-process, rate-controlled producer and run manifest |
 | `rtmpack_harness/collect.py` | Output reader that writes one results line per engine |
@@ -27,7 +27,7 @@ The harness does not run the engines. Each engine job reads `rtmpack.<id>.input`
 
 ## Patterns supported
 
-The pattern id given to `loadgen` (and stored in the manifest, which `collect` reads) selects the rules in `rtmpack_harness/patterns.py`.
+The pattern id given to `loadgen` (and stored in the manifest, which `collect` reads) selects the rules in `rtmpack_harness/patterns/`.
 
 | Pattern | Input | Output key | `expected_distinct` comes from |
 |---|---|---|---|
@@ -40,7 +40,7 @@ For 02-unnest (see its [Benchmark setup](../patterns/02-unnest/README.md#benchma
 
 These follow the shared conventions in contract section 9 and the Benchmark setup of each pattern. None of them has duplicates. `dup_ratio` is 0, and any other value is rejected. All keys are `user-NNNNN`. Every record is padded to `record_bytes`, which has a minimum of 256. Each generator is seeded with `rtmpack:<id>:<seed>:<worker_id>`.
 
-| Pattern | Input fields added to the contract section 2 event | Output topics | `expected_distinct` |
+| Pattern | Fields added to the shared input event | Output topics | `expected_distinct` |
 |---|---|---|---|
 | `03-udf` | none | `rtmpack.03-udf.out.<engine>` | `counts.unique_sent` |
 | `04-routing` | `type`: payment 40 percent, order 30, click 20, login 10 | `rtmpack.04-routing.out.<engine>.<type>` for the four types and `.all` | `counts.expected_outputs` (2 per event) |
@@ -224,13 +224,26 @@ Percentiles come from an integer-millisecond histogram. They are exact at 1 ms r
 
 ## Adding a pattern
 
-1. Write a generator. For a section 2 event with extra fields, subclass `EventGenerator` in `events.py`, set `pattern_id`, and return the extra fields from `_extra()`. For another event shape, subclass `KeyedGenerator` and write `next_unique(event_ts)`. The base class seeds the random stream with the pattern id, the seed and the worker id. Draw random numbers in a fixed order. The event needs a `key` attribute, which becomes the Kafka record key.
-2. Write an encoder `encode(event, record_bytes) -> bytes` that pads to exactly `record_bytes`: `event_encoder(extra)` for section 2 events, or `pad_value(head, record_bytes)` for another shape.
-3. Add a `Pattern` entry to `PATTERNS` in `patterns.py`. It needs the generator, the encoder, `output_keys` (the Kafka keys of the output records one input must produce; their number is the expected output count), `expected_count_field` (the manifest `counts` entry that `collect` uses as `expected_distinct`) and `min_record_bytes`. Set `as_duplicate` and `default_dup_ratio` only if the pattern resends duplicates. Without `as_duplicate`, any non-zero `dup_ratio` is rejected.
-4. Optional `Pattern` fields: `check_value`, `route` and `follow_up` (several input topics), `windows` with `kind="aggregate"`, `default_rate_eps`, `manifest_counts`, `write_refdata`. For several output topics, add the suffixes to `OUTPUT_SUFFIXES` in `contract.py`. For several input topics, add them to `INPUT_SUFFIXES`.
-5. If the output key is not the Kafka record key, or `in_ts` is not in the JSON value, adjust the message handling in `collect.py`. `ingest.py` builds the accumulator keys. These are the Kafka key for single-topic patterns, (topic, key) for 04-routing, and the `key` and `window_start_ms` fields for aggregates. All patterns use the `in_ts` field.
-6. Add tests for determinism, record size, the expected output count and the key rules in `tests/test_patterns.py`. Add the pattern to the table above.
-7. Add a Benchmark setup section to `patterns/<id>/README.md`. Link it from the Per-pattern rules in `docs/CONTRACT.md`, add the Terraform entry (see [infra/README.md](../infra/README.md)), and add the engine implementations under `patterns/<id>/`.
+Each pattern is one file in `rtmpack_harness/patterns/`. The harness finds it automatically; no other harness file needs editing.
+
+**Input events.** There are two kinds:
+- **The shared event plus a few fields.** Most patterns (01 and 03 to 07) use the event every pattern shares (contract section 2: `event_id`, `key`, `seq`, `event_ts`, `is_dup`) and add their own fields, such as `amount`. Start from `_template.py`.
+- **Their own event shape.** A pattern whose input is not a single event, such as an order with items (02-unnest) or orders and payments on two topics (08-join), writes its own event class. Use `p02_unnest.py` as the example.
+
+**Steps:**
+1. Copy `rtmpack_harness/patterns/_template.py` to `rtmpack_harness/patterns/pNN_<name>.py`, for example `p09_filter_rekey.py`.
+2. Fill it in:
+   - the generator's extra fields in `_extra()`, drawing random numbers only from `self._rng` and always in the same order
+   - the encoder, which writes those fields into the JSON
+   - `output_keys`: the Kafka keys of the output records one input must produce
+   - `expected_count_field`
+   - optionally `check_value`
+
+   The optional `Pattern` fields (duplicates, several topics, windows, reference data) are described in `base.py`, and each existing pattern file shows one of them in use.
+3. Add tests in `tests/test_patterns.py`: the same seed gives the same input, records are exactly `record_bytes`, and the expected output count is right. Add the pattern to the table above.
+4. Outside the harness, add the pattern's Benchmark setup section to `patterns/<id>/README.md`, link it from the Per-pattern rules in `docs/CONTRACT.md`, and add the Terraform entry (see [infra/README.md](../infra/README.md)).
+
+Run `python -m pytest -q` in `harness/`. The collector handles one output record per input key, aggregates keyed by `key` and `window_start_ms`, and several output topics. A pattern that needs anything else must change `ingest.py`.
 
 ## Manifest
 

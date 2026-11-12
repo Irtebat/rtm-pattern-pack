@@ -633,3 +633,28 @@ def test_cli_help_works():
     with pytest.raises(SystemExit) as exc:
         main(["refdata", "--help"])
     assert exc.value.code == 0
+
+
+# ------------------------------------------------------------ registry and template
+
+def test_registry_finds_one_module_per_pattern():
+    from rtmpack_harness.patterns import PATTERNS
+    assert list(PATTERNS) == sorted(PATTERNS)
+    assert "NN-name" not in PATTERNS  # _template.py is skipped
+
+
+def test_template_pattern_is_valid():
+    from rtmpack_harness.patterns._template import PATTERN
+    gen = PATTERN.make_generator(seed=1, worker_id=0, key_lo=0, key_hi=100, key_cardinality=100,
+                                 dup_ratio=0.0, dup_delay_ms_min=0, dup_delay_ms_max=0)
+    event = gen.next_unique(1_700_000_000_000)
+    value = PATTERN.encode(event, 1024)
+    assert len(value) == 1024
+    assert PATTERN.outputs_per_event(event) == 1
+
+
+def test_topic_suffixes_come_from_the_pattern():
+    from rtmpack_harness.contract import input_topics, output_topics
+    assert input_topics("08-join") == ["rtmpack.08-join.input.orders", "rtmpack.08-join.input.payments"]
+    assert len(output_topics("04-routing", "rtm")) == 5
+    assert input_topics("01-dedup") == ["rtmpack.01-dedup.input"]

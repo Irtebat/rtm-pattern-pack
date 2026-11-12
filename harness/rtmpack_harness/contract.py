@@ -81,10 +81,12 @@ def check_engine(engine: str) -> str:
     return engine
 
 
-# Contract section 9: patterns with several topics append a suffix to the base.
-INPUT_SUFFIXES: dict[str, tuple[str, ...]] = {"08-join": ("orders", "payments")}
-ROUTING_TYPES = ("payment", "order", "click", "login")
-OUTPUT_SUFFIXES: dict[str, tuple[str, ...]] = {"04-routing": ROUTING_TYPES + ("all",)}
+def _suffixes(pattern: str, field: str) -> tuple[str, ...]:
+    """Topic suffixes a pattern declares (contract section 9). Unknown ids have none."""
+    from rtmpack_harness.patterns import PATTERNS  # late import: patterns imports this module
+
+    rules = PATTERNS.get(normalize_pattern(pattern))
+    return getattr(rules, field) if rules is not None else ()
 
 
 def input_topic(pattern: str) -> str:
@@ -100,14 +102,14 @@ def output_topic(pattern: str, engine: str) -> str:
 def input_topics(pattern: str) -> list[str]:
     """Every input topic of a pattern (the base name when there is no suffix)."""
     base = input_topic(pattern)
-    suffixes = INPUT_SUFFIXES.get(normalize_pattern(pattern))
+    suffixes = _suffixes(pattern, "input_suffixes")
     return [f"{base}.{s}" for s in suffixes] if suffixes else [base]
 
 
 def output_topics(pattern: str, engine: str) -> list[str]:
     """Every output topic one engine writes for a pattern."""
     base = output_topic(pattern, engine)
-    suffixes = OUTPUT_SUFFIXES.get(normalize_pattern(pattern))
+    suffixes = _suffixes(pattern, "output_suffixes")
     return [f"{base}.{s}" for s in suffixes] if suffixes else [base]
 
 

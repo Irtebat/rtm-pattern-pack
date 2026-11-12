@@ -134,7 +134,7 @@ The argument is the pattern id, which is the folder name under `patterns/`. The 
 
 1. Add `patterns/<nn-name>/rtm` and `patterns/<nn-name>/flink`, following `01-dedup`. The Flink Java package is `com.rtmpack.<name>`, and the pom `artifactId` is `rtmpack-flink-<nn-name>`. Build the jar with `build-flink.sh <nn-name>`.
 2. Add an entry to `local.patterns` in `envs/sandbox-usw2/patterns.tf`, keyed by the pattern id: script, worker count, `tasks_required`, checkpoint version and job parameters. Topics, jar path, job and application names are derived from the id. Size it so tasks use 50 to 75 percent of slots. The plan fails otherwise.
-3. Register the pattern in `harness/rtmpack_harness/patterns.py` (generator and correctness rule). Add a Benchmark setup section for it in `patterns/<id>/README.md`, linked from the Per-pattern rules in `docs/CONTRACT.md`.
+3. Add the pattern to the harness: one file in `harness/rtmpack_harness/patterns/`, copied from `_template.py` (see [harness/README.md](../harness/README.md), Adding a pattern). Add a Benchmark setup section for it in `patterns/<id>/README.md`, linked from the Per-pattern rules in `docs/CONTRACT.md`.
 4. Write the pattern `README.md`, including why the use case needs sub-second latency. Add the pattern to the table in the root `README.md`.
 5. Run `infra/scripts/test-pattern.sh <nn-name>`.
 
