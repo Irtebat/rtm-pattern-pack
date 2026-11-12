@@ -56,6 +56,7 @@ rtm-pattern-pack/
     TUNING.md                  fair comparison rules, tuned profiles, tuning levers
   harness/                     Python CLI: topic setup, load generator, collector, report
   patterns/
+    _template/                 starting point for a new pattern folder (see infra/README.md, Adding a pattern)
     01-dedup/ ... 08-join/     one folder per pattern:
       rtm/                       PySpark RTM job and tests
       flink/                     Flink SQL application (Maven) and tests
